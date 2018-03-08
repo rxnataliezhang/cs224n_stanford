@@ -31,9 +31,9 @@ def softmax(x):
     if len(x.shape) > 1:
         # Matrix
         ### YOUR CODE HERE
-        x -= np.max(x, axis=1).reshape(-1,1)
+        x -= np.max(x, axis=1,keepdims=True).reshape(-1,1)
         numer = np.exp(x)
-        denom = np.sum(numer, axis=1)
+        denom = np.sum(numer, axis=1,keepdims=True)
         x = np.divide(numer, denom)
         ### END YOUR CODE
     else:

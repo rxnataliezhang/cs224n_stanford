@@ -16,14 +16,17 @@ class Config(object):
     instantiation. They can then call self.config.<hyperparameter_name> to
     get the hyperparameter settings.
     """
+    
     n_features = 36
     n_classes = 3
-    dropout = 0.5  # (p_drop in the handout)
+    dropout = 0.2  # (p_drop in the handout)
     embed_size = 50
-    hidden_size = 200
+    hidden_size = 400
     batch_size = 1024
     n_epochs = 10
     lr = 0.0005
+    beta = 0.001
+
 
 
 class ParserModel(Model):
@@ -54,6 +57,9 @@ class ParserModel(Model):
         (Don't change the variable names)
         """
         ### YOUR CODE HERE
+        self.input_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.n_features])
+        self.labels_placeholder = tf.placeholder(tf.float32, shape=[None, self.config.n_classes])
+        self.dropout_placeholder = tf.placeholder(tf.float32)
         ### END YOUR CODE
 
     def create_feed_dict(self, inputs_batch, labels_batch=None, dropout=0):
@@ -79,6 +85,11 @@ class ParserModel(Model):
             feed_dict: The feed dictionary mapping from placeholders to values.
         """
         ### YOUR CODE HERE
+        feed_dict = {self.input_placeholder: inputs_batch,
+                     self.dropout_placeholder: dropout}
+        if labels_batch is not None:
+          feed_dict[self.labels_placeholder] = labels_batch
+          
         ### END YOUR CODE
         return feed_dict
 
@@ -100,6 +111,10 @@ class ParserModel(Model):
             embeddings: tf.Tensor of shape (None, n_features*embed_size)
         """
         ### YOUR CODE HERE
+        emb = tf.Variable(self.pretrained_embeddings)
+        input_emb = tf.nn.embedding_lookup(emb, self.input_placeholder)
+        embeddings = tf.reshape(input_emb, shape=[-1, self.config.n_features*self.config.embed_size])
+        
         ### END YOUR CODE
         return embeddings
 
@@ -125,11 +140,31 @@ class ParserModel(Model):
         """
 
         x = self.add_embedding()
+        
+  
         ### YOUR CODE HERE
+        xavier = xavier_weight_init()
+        w_shape = (self.config.n_features*self.config.embed_size, self.config.hidden_size)
+        u_shape = (self.config.hidden_size, self.config.n_classes)
+       
+        
+        with tf.variable_scope("transformation"):
+          
+          
+          b1 = tf.Variable(tf.zeros([self.config.hidden_size,]))
+          b2 = tf.Variable(tf.zeros([self.config.n_classes,]))
+          self.W = W = tf.Variable(xavier(w_shape))
+          self.U = U = tf.Variable(xavier(u_shape))
+                          
+          h = tf.nn.relu(tf.matmul(x, W) + b1)
+          h_drop = tf.nn.dropout(h, 1-self.dropout_placeholder) 
+          pred = tf.matmul(h_drop, U) + b2
+        
         ### END YOUR CODE
         return pred
 
     def add_loss_op(self, pred):
+                          
         """Adds Ops for the loss function to the computational graph.
         In this case we are using cross entropy loss.
         The loss should be averaged over all examples in the current minibatch.
@@ -143,6 +178,11 @@ class ParserModel(Model):
             loss: A 0-d tensor (scalar)
         """
         ### YOUR CODE HERE
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.labels_placeholder, logits=pred))
+        if self.reg:
+          regularizer = tf.nn.l2_loss(self.W) + tf.nn.l2_loss(self.U)
+          loss = tf.reduce_mean(loss + self.config.beta * regularizer)
+         
         ### END YOUR CODE
         return loss
 
@@ -167,6 +207,7 @@ class ParserModel(Model):
             train_op: The Op for training.
         """
         ### YOUR CODE HERE
+        train_op = tf.train.AdamOptimizer(learning_rate=self.config.lr).minimize(loss)
         ### END YOUR CODE
         return train_op
 
@@ -200,13 +241,14 @@ class ParserModel(Model):
                     saver.save(sess, './data/weights/parser.weights')
             print
 
-    def __init__(self, config, pretrained_embeddings):
+    def __init__(self, config, pretrained_embeddings, reg):
         self.pretrained_embeddings = pretrained_embeddings
         self.config = config
+        self.reg = reg
         self.build()
+        
 
-
-def main(debug=True):
+def main(debug=True, reg=False):
     print 80 * "="
     print "INITIALIZING"
     print 80 * "="
@@ -218,7 +260,7 @@ def main(debug=True):
     with tf.Graph().as_default() as graph:
         print "Building model...",
         start = time.time()
-        model = ParserModel(config, embeddings)
+        model = ParserModel(config, embeddings, reg)
         parser.model = model
         init_op = tf.global_variables_initializer()
         saver = None if debug else tf.train.Saver()
@@ -251,4 +293,5 @@ def main(debug=True):
 
 if __name__ == '__main__':
     main()
+
 

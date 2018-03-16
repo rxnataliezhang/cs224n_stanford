@@ -110,7 +110,9 @@ class NERModel(Model):
                         # [features, labels]. This makes expanding tuples into arguments (* operator) handy
 
             ### YOUR CODE HERE (2-3 lines)
-
+            for m in minibatches(train_examples, self.config.batch_size):
+                self.train_on_batch(sess, m[0], m[1])
+                
             ### END YOUR CODE
 
             logger.info("Evaluating on development data")

@@ -111,7 +111,7 @@ class NERModel(Model):
 
             ### YOUR CODE HERE (2-3 lines)
             for m in minibatches(train_examples, self.config.batch_size):
-                self.train_on_batch(sess, m[0], m[1])
+                self.train_on_batch(sess, *m)
                 
             ### END YOUR CODE
 
